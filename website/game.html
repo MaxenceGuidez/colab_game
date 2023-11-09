@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Chevaux</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-family: Helvetica, serif;
+            margin: 0 auto;
+            text-align: center;
+            height: 100%;
+        }
+        #content {
+            transition: background-color 0.5s;
+        }
+        h1 {
+            margin: 2em;
+        }
+        p {
+            font-size: 30px;
+            height: 100px;
+        }
+        div p {
+            font-size: 20px;
+            height: fit-content;
+            margin: 10px 0;
+        }
+        div#redSide {
+            display: grid;
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+        }
+        div#greenSide {
+            display: grid;
+            position: absolute;
+            bottom: 50px;
+            right: 50px;
+        }
+        div#redSide div {
+            height: 100px;
+            width: 100px;
+            background-color: red;
+            border-radius: 50%;
+            margin: auto;
+        }
+        div#greenSide div {
+            height: 100px;
+            width: 100px;
+            background-color: green;
+            border-radius: 50%;
+            margin: auto;
+        }
+    </style>
+</head>
+<body id="content">
+<h1>Bonne chance !</h1>
+
+<p id="question">%QUESTION%</p>
+
+<div id="redSide">
+    <p id="red">%RED%</p>
+    <div id="redCircle"></div>
+</div>
+
+<div id="greenSide">
+    <p id="green">%GREEN%</p>
+    <div id="greenCircle"></div>
+</div>
+
+<script>
+    var websocket;
+    var gateway = `ws://${window.location.hostname}/ws`;
+    var paragraphQuestion = document.querySelector('#question');
+    var paragraphRed = document.querySelector('#red');
+    var paragraphGreen = document.querySelector('#green');
+
+    function onOpen(event) {
+        console.log('Connection opened');
+    }
+    function onClose(event) {
+        console.log('Connection closed');
+        setTimeout(initWebSocket, 2000);
+    }
+    function onMessage(event) {
+        let dataJSON = JSON.parse(event.data);
+        console.log(dataJSON);
+        let backColor = "red";
+
+        if(dataJSON.isLastVictory == "") {
+            backColor = "white";
+        }
+        else {
+            if(dataJSON.isLastVictory == "1") backColor = "green";
+        }
+
+        document.body.style.backgroundColor = backColor;
+        setTimeout(() => {document.body.style.backgroundColor = "white";}, 500);
+
+        paragraphQuestion.innerText = dataJSON.newQuestion;
+        paragraphGreen.innerText = dataJSON.newGreen;
+        paragraphRed.innerText = dataJSON.newRed;
+    }
+    function initWebSocket() {
+        console.log('Trying to open a WebSocket connection...');
+        websocket = new WebSocket(gateway);
+        websocket.onopen    = onOpen;
+        websocket.onclose   = onClose;
+        websocket.onmessage = onMessage; // <-- add this line
+    }
+
+    window.addEventListener('load', onLoad);
+    function onLoad(event) {
+        initWebSocket();
+    }
+</script>
+</body>
+</html>
