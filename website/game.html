@@ -90,23 +90,28 @@
         setTimeout(initWebSocket, 2000);
     }
     function onMessage(event) {
-        let dataJSON = JSON.parse(event.data);
-        console.log(dataJSON);
-        let backColor = "red";
+        if (isJsonString(event.data)){
+            let dataJSON = JSON.parse(event.data);
+            console.log(dataJSON);
+            let backColor = "red";
 
-        if(dataJSON.isLastVictory == "") {
-            backColor = "white";
+            if(dataJSON.isLastVictory == "") {
+                backColor = "white";
+            }
+            else {
+                if(dataJSON.isLastVictory == "1") backColor = "green";
+            }
+
+            document.body.style.backgroundColor = backColor;
+            setTimeout(() => {document.body.style.backgroundColor = "white";}, 500);
+
+            paragraphQuestion.innerText = dataJSON.newQuestion;
+            paragraphGreen.innerText = dataJSON.newGreen;
+            paragraphRed.innerText = dataJSON.newRed;
         }
         else {
-            if(dataJSON.isLastVictory == "1") backColor = "green";
+            if (event.data === "RESET") window.location.href = '/';
         }
-
-        document.body.style.backgroundColor = backColor;
-        setTimeout(() => {document.body.style.backgroundColor = "white";}, 500);
-
-        paragraphQuestion.innerText = dataJSON.newQuestion;
-        paragraphGreen.innerText = dataJSON.newGreen;
-        paragraphRed.innerText = dataJSON.newRed;
     }
     function initWebSocket() {
         console.log('Trying to open a WebSocket connection...');
@@ -119,6 +124,14 @@
     window.addEventListener('load', onLoad);
     function onLoad(event) {
         initWebSocket();
+    }
+    function isJsonString(str) {
+        try {
+            JSON.parse(str);
+        } catch (e) {
+            return false;
+        }
+        return true;
     }
 </script>
 </body>

@@ -7,8 +7,8 @@
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-const char *ssid = "MonPointDacces";
-const char *password = "MonMotDePasse";
+const char *ssid = "MyAccessPoint";
+const char *password = "MyPassword";
 
 // BUTTONS VARIABLES --------------------------------------------------------------------
 const int btnGreenPin = 23;
@@ -28,6 +28,13 @@ const int limitLeftPin = 33;
 int limitLeftState = 0;
 int lastLimitLeftState = 0;
 
+// TOUCH VARIABLES ---------------------------------------------------------------
+const int touchPin = 4;
+const int touchThreshold = 20;
+int touchValue;
+int lastTouchValue;
+bool isTouching = false;
+
 // MOTOR VARIABLES ----------------------------------------------------------------------
 const int dirPin = 19;
 const int stepPin = 18;
@@ -40,6 +47,7 @@ unsigned long lastDebounceTimeBtnGreen = 0;
 unsigned long lastDebounceTimeBtnRed = 0;
 unsigned long lastDebounceTimeLimitRight = 0;
 unsigned long lastDebounceTimeLimitLeft = 0;
+unsigned long lastDebounceTimeTouch = 0;
 
 // QUESTIONS VARIABLES ------------------------------------------------------------------
 int actualQuestionIndex = 0;
@@ -80,6 +88,9 @@ Question questions[] = {
   {"Le Wi-Fi est principalement utilisé pour la communication sans fil à longue distance.", "Vrai", "Faux", RED},
   {"La cybersécurité concerne la protection des systèmes informatiques contre les menaces en ligne.", "Vrai", "Faux", GREEN}
 };
+
+// GAME VARIABLES -----------------------------------------------------------------------
+bool isGameStarted = false;
 
 // OTHERS VARIABLES ---------------------------------------------------------------------
 bool isMoving = false;
@@ -212,16 +223,17 @@ void checkButtonsAndLimitSwitches() {
 void activeMotor() {
   if (isMoving) {
     if (btnGreenState == HIGH) {
-      moveForward();
+      moveForward(1);
     }
     if (btnRedState == HIGH) {
-      moveForward();
+      moveForward(1);
     }
-    if (limitRightState == HIGH) {
+    if (limitRightState == HIGH || isTouching) {
       returnBeginning();
+      isTouching = false;
     }
     if (limitLeftState == HIGH) {
-      moveHalfForward();
+      moveForward(0.5);
     }
 
     isMoving = false;
@@ -229,26 +241,15 @@ void activeMotor() {
   }
 }
 
-void moveForward() {
+void moveForward(float times) {
   digitalWrite(dirPin, LOW);
-  for (int i = 0; i < stepsPerRev; i++) {
+  for (int i = 0; i < stepsPerRev * times; i++) {
     digitalWrite(stepPin, HIGH);
     delayMicroseconds(3000);
     digitalWrite(stepPin, LOW);
     delayMicroseconds(3000);
 
-    if (!digitalRead(limitRightPin) == HIGH || !digitalRead(limitLeftPin) == HIGH) break;
-  }
-}
-
-void moveHalfForward() {
-  digitalWrite(dirPin, LOW);
-  unsigned long startTime = millis();
-  while (millis() - startTime < 200) {
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(2000);
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(2000);
+    if (!digitalRead(limitRightPin) == HIGH) break;
   }
 }
 
@@ -260,7 +261,10 @@ void returnBeginning() {
     digitalWrite(stepPin, LOW);
     delayMicroseconds(4000);
 
-    if (!digitalRead(limitLeftPin) == HIGH) break;
+    if (!digitalRead(limitLeftPin) == HIGH) {
+      moveForward(0.5);
+      break;
+    }
   }
 }
 
@@ -268,6 +272,31 @@ void checkTimeout() {
   if (!isMoving && (millis() - lastMoveTime) > timeout) {
     digitalWrite(enablePin, HIGH);
   }
+}
+
+void checkTouch() {
+  int newTouchValue = touchRead(touchPin);
+
+  if (newTouchValue != lastTouchValue) {
+    lastDebounceTimeTouch = millis();
+  }
+
+  if ((millis() - lastDebounceTimeTouch) > debounceDelay) {
+    if (newTouchValue != touchValue) {
+      touchValue = newTouchValue;
+
+      if(touchValue < touchThreshold) {
+        isMoving = true;
+        isTouching = true;
+
+        isGameStarted = false;
+        actualQuestionIndex = 0;
+        notifyClients("RESET");
+      }
+    }
+  }
+
+  lastTouchValue = newTouchValue;
 }
 
 // SETUP / LOOP -------------------------------------------------------------------------
@@ -416,23 +445,28 @@ void setup() {
                 setTimeout(initWebSocket, 2000);
             }
             function onMessage(event) {
-                let dataJSON = JSON.parse(event.data);
-                console.log(dataJSON);
-                let backColor = "red";
+                if (isJsonString(event.data)){
+                    let dataJSON = JSON.parse(event.data);
+                    console.log(dataJSON);
+                    let backColor = "red";
 
-                if(dataJSON.isLastVictory == "") {
-                    backColor = "white";
+                    if(dataJSON.isLastVictory == "") {
+                        backColor = "white";
+                    }
+                    else {
+                        if(dataJSON.isLastVictory == "1") backColor = "green";
+                    }
+                    
+                    document.body.style.backgroundColor = backColor;
+                    setTimeout(() => {document.body.style.backgroundColor = "white";}, 500);
+
+                    paragraphQuestion.innerText = dataJSON.newQuestion;
+                    paragraphGreen.innerText = dataJSON.newGreen;
+                    paragraphRed.innerText = dataJSON.newRed;
                 }
                 else {
-                    if(dataJSON.isLastVictory == "1") backColor = "green";
+                    if (event.data === "RESET") window.location.href = '/';
                 }
-                
-                document.body.style.backgroundColor = backColor;
-                setTimeout(() => {document.body.style.backgroundColor = "white";}, 500);
-
-                paragraphQuestion.innerText = dataJSON.newQuestion;
-                paragraphGreen.innerText = dataJSON.newGreen;
-                paragraphRed.innerText = dataJSON.newRed;
             }
             function initWebSocket() {
                 console.log('Trying to open a WebSocket connection...');
@@ -446,9 +480,19 @@ void setup() {
             function onLoad(event) {
                 initWebSocket();
             }
+            function isJsonString(str) {
+              try {
+                  JSON.parse(str);
+              } catch (e) {
+                  return false;
+              }
+              return true;
+            }
         </script>
     </body>
     </html>)";
+
+    isGameStarted = true;
 
     request->send(200, "text/html", html);
   });
@@ -461,9 +505,12 @@ void setup() {
 void loop() {
   ws.cleanupClients();
 
-  checkButtonsAndLimitSwitches();
+  if (isGameStarted) {
+    checkTouch();
+    checkButtonsAndLimitSwitches();
 
-  activeMotor();
+    activeMotor();
+  }
 
   checkTimeout();
 }
