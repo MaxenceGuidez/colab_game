@@ -1,31 +1,90 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='fr'>
 <head>
-    <title>Chevaux</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>COlab</title>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
     <style>
-        html {
-            font-family: Helvetica;
-            display: inline-block;
-            margin: 0 auto;
-            text-align: center;
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
         }
-        .button {
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            padding: 16px 40px;
-            text-decoration: none;
-            font-size: 30px;
-            margin: 2px;
-            cursor: pointer;
+
+        html,
+        body {
+            font-family: Helvetica, serif;
+            text-align: center;
+            height: 100%;
+            width: 100%;
+            color: #FFF;
+            background-image: linear-gradient(to bottom right, #0067C6, #8370EC, #8370EC);
+        }
+
+        h1 {
+            font-size: 3.5em;
+            padding: 1em;
+            white-space: nowrap;
+            color: #142741;
+        }
+
+        div {
+            padding: 1em;
+            font-size: 25px;
+        }
+
+        div#greenCircle {
+            display: inline-block;
+            height: 50px;
+            width: 50px;
+            background-color: #080;
+            border-radius: 50%;
+            margin: 0 0.5em;
+            vertical-align: middle;
+            border: #000 2px solid;
         }
     </style>
 </head>
 <body>
 <h1>Bienvenue !</h1>
-<p>Cliquez pour commencer</p>
-<p><a href="/start"><button class="button">COMMENCER</button></a></p>
+
+<div>Attendez que le départ soit donné par l'animateur et appuyez sur
+    <div id='greenCircle'></div>
+    pour débuter la course !
+</div>
+
+<script>
+    // WS
+    var websocket;
+    var gateway = `ws://${window.location.hostname}/ws`;
+
+    window.addEventListener('load', onLoad);
+
+    // WS FUNCTIONS
+    function onLoad(event) {
+        initWebSocket();
+    }
+
+    function initWebSocket() {
+        console.log('Trying to open a WebSocket connection...');
+        websocket = new WebSocket(gateway);
+        websocket.onopen = onOpen;
+        websocket.onclose = onClose;
+        websocket.onmessage = onMessage;
+    }
+
+    function onOpen(event) {
+        console.log('Connection opened');
+    }
+
+    function onClose(event) {
+        console.log('Connection closed');
+        setTimeout(initWebSocket, 2000);
+    }
+
+    function onMessage(event) {
+        if (event.data === 'PASS') window.location.href = '/start';
+    }
+</script>
 </body>
 </html>

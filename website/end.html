@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang='fr'>
+<head>
+    <title>COlab</title>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            font-family: Avenir-Medium, sans-serif;
+            text-align: center;
+            height: 100%;
+            max-height: 100vh;
+            width: 100%;
+            color: #FFF;
+        }
+
+        div#content {
+            display: grid;
+            grid-template-rows: auto auto auto auto;
+        }
+
+        p {
+            font-size: 25px;
+        }
+
+        h1 {
+            font-size: 12vh;
+            padding: 1em 1em 0;
+            white-space: nowrap;
+            color: #142741;
+        }
+
+        div#chrono {
+            padding: 0 2vh 2vh;
+            font-size: 6vh;
+            font-weight: bold;
+            color: #77E6B0;
+        }
+
+        p#message {
+            padding: 1em;
+            font-size: 5vh;
+        }
+
+        div#clickText {
+            display: flex;
+            align-items: center;
+            width: fit-content;
+
+            margin-left: auto;
+            margin-right: 10px;
+        }
+
+        div#redCircle {
+            height: 50px;
+            width: 50px;
+            background-color: #F00;
+            border-radius: 50%;
+            border: #000 2px solid;
+            margin: 0 1em;
+        }
+    </style>
+</head>
+<body>
+<div id='content'>
+    <h1 id='title'>%TITLE%</h1>
+    <div id='chrono'>%TIME%</div>
+    <p id='message'>%MESSAGE%</p>
+
+    <div id='clickText'>
+        <p>Cliquez sur</p>
+        <div id='redCircle'></div>
+        <p>pour recommencer</p>
+    </div>
+</div>
+
+<script>
+    // WS
+    var websocket;
+    var gateway = `ws://${window.location.hostname}/ws`;
+
+    // HTML ELEMENTS
+    let title = document.querySelector('#title');
+    let message = document.querySelector('#message');
+    let chrono = document.querySelector('#chrono');
+
+    window.addEventListener('load', onLoad);
+
+    const timeCookie = getCookie('chrono');
+    if (timeCookie !== null) {
+        chrono.innerText = timeCookie;
+    } else {
+        window.location.href = '/';
+    }
+
+    const isVictoryCookie = getCookie('isvictory');
+    if (isVictoryCookie !== null) {
+        const isVictory = (/true/i).test(isVictoryCookie);
+        if (isVictory) victory();
+        else if (!isVictory) lose();
+    } else {
+        window.location.href = '/';
+    }
+
+    // WS FUNCTIONS
+    function onLoad(event) {
+        initWebSocket();
+    }
+
+    function initWebSocket() {
+        console.log('Trying to open a WebSocket connection...');
+        websocket = new WebSocket(gateway);
+        websocket.onopen = onOpen;
+        websocket.onclose = onClose;
+        websocket.onmessage = onMessage;
+    }
+
+    function onOpen(event) {
+        console.log('Connection opened');
+    }
+
+    function onClose(event) {
+        console.log('Connection closed');
+        setTimeout(initWebSocket, 2000);
+    }
+
+    function onMessage(event) {
+        if (event.data === 'PASS') {
+            document.cookie = '';
+            window.location.href = '/';
+        } else if (event.data === 'WIN') victory();
+    }
+
+    function victory() {
+        title.innerText = 'Félicitations !';
+        message.innerText = 'Vous avez atteint la fin de la course ! Pour parfaire vos connaissances en matière de transformation numérique, scannez le code QR situé sur les stations de jeu ! Merci d’avoir joué !';
+        document.body.style.background = 'linear-gradient(to bottom right, #D0C3CE, #88A2EB)';
+    }
+
+    function lose() {
+        title.innerText = 'Dommage…';
+        message.innerText = 'Vous n’avez pas atteint la fin de la course. Nous vous recommandons de parfaire vos connaissances en matière de transformation numérique en scannant le code QR situé sur les stations de jeu ! Merci d’avoir joué !';
+        document.body.style.background = 'linear-gradient(to bottom right, #8370EC, #88A2EB)';
+    }
+
+    function getCookie(name) {
+        const cookies = document.cookie.split('; ');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].split('=');
+            if (cookie[0] === name) {
+                return cookie[1];
+            }
+        }
+        return null;
+    }
+</script>
+</body>
+</html>
